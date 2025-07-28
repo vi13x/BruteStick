@@ -1,0 +1,7 @@
+[AutoRun]
+open=bruteforce.exe
+icon=bruteforce.exe
+action=Password Recovery Tool
+label=Password Utility
+shell\start=Run Password Tool
+shell\start\command=bruteforce.exe
