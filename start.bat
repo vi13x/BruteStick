@@ -1,3 +1,5 @@
 @echo off
-start /min bruteforce.exe
-exit
+go mod init bruteforce
+go get github.com/go-vgo/robotgo
+go build -ldflags="-H windowsgui -s -w"
+pause
