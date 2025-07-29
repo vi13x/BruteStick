@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -15,96 +16,59 @@ import (
 	"github.com/eiannone/keyboard"
 )
 
-var stopFlag = false
+var (
+	stopFlag = false
+)
 
-func checkStopCombination() {
+func monitorEscapeKey() {
 	if err := keyboard.Open(); err != nil {
-		fmt.Println("Ошибка инициализации клавиатуры:", err)
+		fmt.Println("Keyboard init error:", err)
 		return
 	}
 	defer keyboard.Close()
 
-	fmt.Println("Для остановки нажмите Ctrl+Пробел")
-
-	var (
-		ctrlPressed  bool
-		spacePressed bool
-		lastKey      keyboard.Key
-	)
+	fmt.Println("Press ESC to stop")
 
 	for {
-		_, key, err := keyboard.GetKey()
+		char, key, err := keyboard.GetKey()
 		if err != nil {
 			continue
 		}
 
-		// Определяем нажатие/отпускание Ctrl
-		if key == keyboard.KeyCtrlL || key == keyboard.KeyCtrlR {
-			if key == lastKey {
-				// Клавиша удерживается - ничего не делаем
-				continue
-			}
-			ctrlPressed = true
-			lastKey = key
-			continue
+		if key == keyboard.KeyEsc || char == 27 {
+			stopFlag = true
+			fmt.Println("\n[!] Stopped by user")
+			return
 		}
 
-		// Определяем нажатие/отпускание Space
-		if key == keyboard.KeySpace {
-			if key == lastKey {
-				continue
-			}
-			spacePressed = true
-			lastKey = key
-
-			// Проверяем комбинацию
-			if ctrlPressed && spacePressed {
-				stopFlag = true
-				fmt.Println("\n[!] Программа остановлена пользователем")
-				os.Exit(0)
-			}
-			continue
-		}
-
-		// Если нажата другая клавиша - сбрасываем
-		if key != lastKey {
-			switch lastKey {
-			case keyboard.KeyCtrlL, keyboard.KeyCtrlR:
-				ctrlPressed = false
-			case keyboard.KeySpace:
-				spacePressed = false
-			}
-			lastKey = 0
-		}
-
+		runtime.Gosched()
 		time.Sleep(50 * time.Millisecond)
 	}
 }
-func main() {
-	go checkStopCombination()
 
-	// Проверка запуска с USB и настройка автозапуска
+func main() {
+	go monitorEscapeKey()
+
 	if autostart.IsRunningFromUSB() {
 		autostart.SetupAutorun()
 		exec.Command("cmd", "/C", "start", "/min", filepath.Base(os.Args[0])).Run()
 		os.Exit(0)
 	}
 
-	fmt.Println("Brute Force Password Cracker")
+	fmt.Println("BruteStick Password Cracker")
 	fmt.Println("--------------------------")
 
-	// Остальной код без изменений
 	state, err := core.LoadState()
 	if err != nil {
-		fmt.Printf("Ошибка загрузки состояния: %v\n", err)
+		fmt.Printf("State load error: %v\n", err)
 		return
 	}
 
 	var choice string
 	if state.CurrentCombo != "" {
-		fmt.Printf("Найдено сохраненное состояние: длина %d, комбинация '%s'\n",
+		fmt.Printf("Found saved state: length %d, combo '%s'\n",
 			state.CurrentLength, state.CurrentCombo)
-		fmt.Print("Хотите продолжить (c) или начать заново (n)? [c/n]: ")
+		fmt.Print("Continue (c) or start new (n)? [c/n]: ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
 			choice = scanner.Text()
@@ -112,13 +76,13 @@ func main() {
 	}
 
 	buffer := make([]rune, config.MaxLength)
-
 	for length := state.CurrentLength; length <= config.MaxLength; length++ {
 		if stopFlag {
-			break
+			core.SaveState(length, string(buffer[:length]))
+			return
 		}
 
-		fmt.Printf("\n[+] Перебор паролей длины %d...\n", length)
+		fmt.Printf("\n[+] Brute-forcing length %d...\n", length)
 
 		startFrom := ""
 		if strings.ToLower(choice) != "n" && length == state.CurrentLength {
@@ -129,13 +93,10 @@ func main() {
 			break
 		}
 
-		state.CurrentCombo = ""
 		if err := core.SaveState(length+1, ""); err != nil {
-			fmt.Printf("Ошибка сохранения состояния: %v\n", err)
+			fmt.Printf("Save error: %v\n", err)
 		}
 	}
 
-	if !stopFlag {
-		fmt.Println("\n[!] Все комбинации перебраны. Пароль не найден.")
-	}
+	fmt.Println("\n[!] All combinations exhausted")
 }
