@@ -10,7 +10,11 @@ import (
 	"github.com/go-vgo/robotgo"
 )
 
-func BruteForce(buffer []rune, pos, length int, startFrom string) bool {
+func BruteForce(buffer []rune, pos, length int, startFrom string, stopFlag *bool) bool {
+	if *stopFlag {
+		return false
+	}
+
 	if pos == length {
 		password := string(buffer[:length])
 		fmt.Printf("Пробуем: %s\n", password)
@@ -21,15 +25,18 @@ func BruteForce(buffer []rune, pos, length int, startFrom string) bool {
 
 	if pos < len(startFrom) {
 		buffer[pos] = rune(startFrom[pos])
-		if BruteForce(buffer, pos+1, length, startFrom) {
+		if BruteForce(buffer, pos+1, length, startFrom, stopFlag) {
 			return true
 		}
 		return false
 	}
 
 	for _, char := range config.Alphabet {
+		if *stopFlag {
+			return false
+		}
 		buffer[pos] = char
-		if BruteForce(buffer, pos+1, length, startFrom) {
+		if BruteForce(buffer, pos+1, length, startFrom, stopFlag) {
 			return true
 		}
 	}
