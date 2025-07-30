@@ -6,9 +6,9 @@ import (
 )
 
 type BruteState struct {
-	CurrentLength   int
-	CurrentPassword string
-	Stopped         bool `json:"-"`
+	CurrentLength   int    `json:"current_length"`
+	CurrentPassword string `json:"current_password"`
+	Stopped         bool   `json:"-"`
 }
 
 func NewBruteState() *BruteState {

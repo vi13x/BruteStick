@@ -1,12 +1,15 @@
 package brute
 
 import (
-	"bruteforce/internal/state"
-	"log"
 	"strings"
+
+	"github.com/vi13x/BruteStick/internal/config"
+	"github.com/vi13x/BruteStick/internal/logger"
+	"github.com/vi13x/BruteStick/internal/state"
 )
 
-func Run(s *state.BruteState, cfg *Config, logger *log.Logger) {
+// Run запускает цикл перебора паролей
+func Run(s *state.BruteState, cfg *config.Config, logg *logger.Logger) {
 	alphabet := cfg.Alphabet
 	maxLen := cfg.MaxPasswordLen
 
@@ -23,8 +26,9 @@ func Run(s *state.BruteState, cfg *Config, logger *log.Logger) {
 
 		done := false
 		for !done && !s.Stopped {
-			logger.Info("Trying password: %s", pwd)
-			// Здесь добавить вызов попытки аутентификации или проверку пароля
+			logg.Info("Trying password: %s", pwd)
+
+			// TODO: Добавьте логику проверки пароля здесь (например, попытка аутентификации)
 
 			pwd, done = nextPassword(pwd, alphabet)
 			s.CurrentPassword = pwd
@@ -34,7 +38,7 @@ func Run(s *state.BruteState, cfg *Config, logger *log.Logger) {
 	}
 }
 
-// nextPassword генерирует следующий пароль. Возвращает новый пароль и true, если перебор закончился.
+// nextPassword генерирует следующий пароль. Возвращает следующий пароль и true, если перебор закончился
 func nextPassword(current, alphabet string) (string, bool) {
 	bytes := []byte(current)
 	base := len(alphabet)
@@ -48,6 +52,7 @@ func nextPassword(current, alphabet string) (string, bool) {
 		if index == base {
 			bytes[i] = alphabet[0]
 			if i == 0 {
+				// Если достигнут последний пароль данной длины, сигнализируем завершение текущей длины
 				return string(bytes), true
 			}
 		} else {
@@ -55,6 +60,5 @@ func nextPassword(current, alphabet string) (string, bool) {
 			break
 		}
 	}
-
 	return string(bytes), false
 }

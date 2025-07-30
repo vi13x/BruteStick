@@ -1,6 +1,8 @@
-module bruteforce
+module github.com/vi13x/BruteStick
 
-go 1.24.5
+go 1.23.0
+
+toolchain go1.24.5
 
 require (
 	github.com/dblohm7/wingoes v0.0.0-20250611174154-e3e096948d18 // indirect
