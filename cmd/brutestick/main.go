@@ -1,63 +1,60 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
-	"github.com/vi13x/BruteStick/internal/brute"
-	"github.com/vi13x/BruteStick/internal/config"
-	"github.com/vi13x/BruteStick/internal/logger"
-	"github.com/vi13x/BruteStick/internal/registry"
-	"github.com/vi13x/BruteStick/internal/state"
+	"brutestick/internal/config"
+	"brutestick/internal/core"
+	"brutestick/internal/logger"
+	"brutestick/internal/utils"
 )
 
 func main() {
-	cfg, err := config.LoadConfig()
+	log := logger.NewLogger()
+	defer log.Close()
+
+	conf := config.LoadConfig()
+	log.Info("Starting brutestick with config: %+v", conf)
+
+	err := utils.SetupAutoRun()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Warn("Failed to setup autorun: %v", err)
 	}
 
-	logg, err := logger.NewLogger(cfg.LogPath)
-	if err != nil {
-		log.Fatalf("Failed to init logger: %v", err)
-	}
-	defer func() {
-		if err := logg.Close(); err != nil {
-			log.Printf("Error closing logger: %v", err)
-		}
-	}()
+	// Перехват сигналов ОС (Ctrl+C и т.п.)
+	stopCh := make(chan os.Signal, 1)
+	signal.Notify(stopCh, syscall.SIGINT, syscall.SIGTERM)
 
-	if cfg.EnableAutostart && cfg.ExecutablePath != "" {
-		if err := registry.SetupAutostart(cfg.ExecutablePath); err != nil {
-			logg.Error("Failed to setup autostart: %v", err)
-		} else {
-			logg.Info("Autostart configured")
-		}
-	}
+	// Канал для отслеживания нажатия ESC
+	escCh := make(chan struct{})
+	go utils.MonitorESC(escCh) // Запускаем мониторинг ESC в горутине
 
-	key := []byte(cfg.StateEncryptionKey)
-	bruteState, err := state.LoadState(cfg.StateFilePath, key)
-	if err != nil {
-		logg.Warn("No previous state loaded, starting fresh")
-		bruteState = state.NewBruteState()
-	}
-
-	// Отслеживание сигналов прерывания для корректной остановки
-	stopChan := make(chan os.Signal, 1)
-	signal.Notify(stopChan, os.Interrupt, syscall.SIGTERM)
+	// Канал для возврата результата работы core.Run
+	doneCh := make(chan error)
 	go func() {
-		<-stopChan
-		logg.Info("Interrupt received, stopping...")
-		bruteState.Stop()
+		doneCh <- core.Run(conf, log, escCh) // Запускаем core.Run, отправляем ошибку в doneCh
 	}()
 
-	// Запуск перебора
-	brute.Run(bruteState, cfg, logg)
-
-	// Сохранение состояния
-	if err := state.SaveState(bruteState, cfg.StateFilePath, key); err != nil {
-		logg.Error("Failed to save state: %v", err)
+	select {
+	case <-stopCh:
+		log.Info("Termination signal received, exiting...")
+		fmt.Println("\nExit signal received")
+	case <-escCh:
+		log.Info("ESC pressed, stopping brute force")
+		fmt.Println("\nESC pressed, stopping brute force")
+	case err := <-doneCh:
+		if err != nil {
+			log.Error("Error in brute force: %v", err)
+			fmt.Println("Error:", err)
+		} else {
+			log.Info("Brute force finished successfully")
+			fmt.Println("Brute force finished successfully")
+		}
 	}
+
+	time.Sleep(500 * time.Millisecond) // Небольшая пауза для корректного завершения
 }

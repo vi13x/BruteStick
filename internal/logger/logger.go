@@ -4,44 +4,39 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 )
 
 type Logger struct {
-	mu     sync.Mutex
-	file   *os.File
 	logger *log.Logger
+	file   *os.File
 }
 
-func NewLogger(path string) (*Logger, error) {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+func NewLogger() *Logger {
+	f, err := os.OpenFile("brutestick.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err != nil {
-		return nil, err
+		log.Fatalf("Failed to open log file: %v", err)
 	}
 	return &Logger{
+		logger: log.New(f, "", log.Ldate|log.Ltime|log.Lshortfile),
 		file:   f,
-		logger: log.New(f, "", log.LstdFlags),
-	}, nil
+	}
 }
 
 func (l *Logger) Info(format string, v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Output(2, fmt.Sprintf("[INFO] "+format, v...))
+	l.logger.SetPrefix("INFO: ")
+	l.logger.Output(2, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Warn(format string, v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Output(2, fmt.Sprintf("[WARN] "+format, v...))
+	l.logger.SetPrefix("WARN: ")
+	l.logger.Output(2, fmt.Sprintf(format, v...))
 }
 
 func (l *Logger) Error(format string, v ...interface{}) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.logger.Output(2, fmt.Sprintf("[ERROR] "+format, v...))
+	l.logger.SetPrefix("ERROR: ")
+	l.logger.Output(2, fmt.Sprintf(format, v...))
 }
 
-func (l *Logger) Close() error {
-	return l.file.Close()
+func (l *Logger) Close() {
+	l.file.Close()
 }

@@ -1,0 +1,10 @@
+INFO: 2025/08/01 08:46:59 main.go:21: Starting brutestick with config: &{MaxPasswordLength:6 SaveFile:state.dat}
+INFO: 2025/08/01 08:46:59 core.go:16: Core started with max password length 6
+WARN: 2025/08/01 08:46:59 core.go:21: No previous state found, starting new brute force
+INFO: 2025/08/01 08:46:59 core.go:42: Brute forcing started from: 
+INFO: 2025/08/01 08:49:24 main.go:45: Termination signal received, exiting...
+INFO: 2025/08/01 08:49:32 main.go:21: Starting brutestick with config: &{MaxPasswordLength:6 SaveFile:state.dat}
+INFO: 2025/08/01 08:49:32 core.go:16: Core started with max password length 6
+INFO: 2025/08/01 08:49:32 core.go:24: Loaded previous state: bKQ2
+INFO: 2025/08/01 08:49:32 core.go:42: Brute forcing started from: bKQ2
+INFO: 2025/08/01 08:49:36 main.go:44: Termination signal received, exiting...
