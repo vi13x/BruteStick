@@ -25,18 +25,15 @@ func main() {
 		log.Warn("Failed to setup autorun: %v", err)
 	}
 
-	// Перехват сигналов ОС (Ctrl+C и т.п.)
 	stopCh := make(chan os.Signal, 1)
 	signal.Notify(stopCh, syscall.SIGINT, syscall.SIGTERM)
 
-	// Канал для отслеживания нажатия ESC
 	escCh := make(chan struct{})
-	go utils.MonitorESC(escCh) // Запускаем мониторинг ESC в горутине
+	go utils.MonitorESC(escCh)
 
-	// Канал для возврата результата работы core.Run
 	doneCh := make(chan error)
 	go func() {
-		doneCh <- core.Run(conf, log, escCh) // Запускаем core.Run, отправляем ошибку в doneCh
+		doneCh <- core.Run(conf, log, escCh)
 	}()
 
 	select {
@@ -56,5 +53,5 @@ func main() {
 		}
 	}
 
-	time.Sleep(500 * time.Millisecond) // Небольшая пауза для корректного завершения
+	time.Sleep(500 * time.Millisecond)
 }

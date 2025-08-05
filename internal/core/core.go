@@ -58,9 +58,6 @@ func Run(conf *config.Config, log *logger.Logger, escCh <-chan struct{}) error {
 
 			fmt.Printf("Trying password: %s\r", string(passwordRunes))
 
-			// TODO: Здесь реализуйте проверку текущего перебираемого пароля
-
-			// Сохраняем прогресс
 			state.CurrentPassword = string(passwordRunes)
 			err := utils.SaveState(conf.SaveFile, state)
 			if err != nil {

