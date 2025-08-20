@@ -73,7 +73,7 @@ var (
 	procGetAsyncKeyState = user32.NewProc("GetAsyncKeyState")
 )
 
-// MonitorESC следит за нажатием клавиши ESC и посылает сигнал в канал escCh
+
 func MonitorESC(escCh chan<- struct{}) {
 	const VK_ESCAPE = 0x1B
 	for {
